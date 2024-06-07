@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern To-Do List</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            text-align: center;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        nav button {
+            background-color: #6200ea;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 0 5px;
+        }
+        nav button:hover {
+            background-color: #3700b3;
+        }
+        .hidden {
+            display: none;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        .task {
+            background-color: #333;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task button {
+            background-color: #b00020;
+            border: none;
+            color: #ffffff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .task button:hover {
+            background-color: #790000;
+        }
+        #addTaskView form {
+            display: flex;
+            flex-direction: column;
+        }
+        #addTaskView input, #addTaskView button {
+            margin: 10px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+        #addTaskView input {
+            background-color: #333;
+            color: #e0e0e0;
+        }
+        #addTaskView button {
+            background-color: #6200ea;
+            color: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #addTaskView button:hover {
+            background-color: #3700b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>To-Do List</h1>
+        <nav>
+            <button id="viewTasksBtn">Tasks</button>
+            <button id="addTasksBtn">Add Tasks</button>
+        </nav>
+        <div id="taskView" class="hidden">
+            <h2>Tasks</h2>
+            <h3>Due Today</h3>
+            <ul id="dueToday" class="task-list"></ul>
+            <h3>Due Tomorrow</h3>
+            <ul id="dueTomorrow" class="task-list"></ul>
+            <h3>Due This Week</h3>
+            <ul id="dueThisWeek" class="task-list"></ul>
+            <h3>Other</h3>
+            <ul id="otherTasks" class="task-list"></ul>
+        </div>
+        <div id="addTaskView" class="hidden">
+            <h2>Add Task</h2>
+            <form id="taskForm">
+                <input type="text" id="taskName" placeholder="Task Name" required>
+                <input type="number" id="taskDuration" placeholder="Duration (hours)" required>
+                <input type="date" id="taskDeadline" required>
+                <button type="submit">Add Task</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const taskForm = document.getElementById('taskForm');
+            const viewTasksBtn = document.getElementById('viewTasksBtn');
+            const addTasksBtn = document.getElementById('addTasksBtn');
+            const taskView = document.getElementById('taskView');
+            const addTaskView = document.getElementById('addTaskView');
+            const taskName = document.getElementById('taskName');
+            const taskDuration = document.getElementById('taskDuration');
+            const taskDeadline = document.getElementById('taskDeadline');
+
+            function loadTasks() {
+                const today = new Date().toISOString().split('T')[0];
+                const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+                document.getElementById('dueToday').innerHTML = '';
+                document.getElementById('dueTomorrow').innerHTML = '';
+                document.getElementById('dueThisWeek').innerHTML = '';
+                document.getElementById('otherTasks').innerHTML = '';
+
+                const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                tasks.forEach((task, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'task';
+                    li.innerHTML = `
+                        <span>${task.name} - ${task.duration} hrs - Due: ${task.deadline}</span>
+                        <button onclick="removeTask(${index})">Remove</button>
+                    `;
+                    if (task.deadline === today) {
+                        document.getElementById('dueToday').appendChild(li);
+                    } else if (task.deadline === tomorrow) {
+                        document.getElementById('dueTomorrow').appendChild(li);
+                    } else if (task.deadline <= weekFromNow) {
+                        document.getElementById('dueThisWeek').appendChild(li);
+                    } else {
+                        document.getElementById('otherTasks').appendChild(li);
+                    }
+                });
+            }
+
+            taskForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                const newTask = {
+                    name: taskName.value,
+                    duration: taskDuration.value,
+                    deadline: taskDeadline.value
+                };
+                tasks.push(newTask);
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                loadTasks();
+                taskForm.reset();
+                showTasks();
+            });
+
+            window.removeTask = (index) => {
+                const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                tasks.splice(index, 1);
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                loadTasks();
+            };
+
+            function showTasks() {
+                taskView.classList.remove('hidden');
+                addTaskView.classList.add('hidden');
+            }
+
+            function showAddTasks() {
+                taskView.classList.add('hidden');
+                addTaskView.classList.remove('hidden');
+            }
+
+            viewTasksBtn.addEventListener('click', showTasks);
+            addTasksBtn.addEventListener('click', showAddTasks);
+
+            loadTasks();
+            showTasks();
+        });
+    </script>
+</body>
+</html>
