@@ -52,13 +52,21 @@
             padding: 0;
         }
         .task {
-            background-color: #333;
             margin: 10px 0;
             padding: 10px;
             border-radius: 5px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        .task.green {
+            background-color: #388e3c;
+        }
+        .task.yellow {
+            background-color: #fbc02d;
+        }
+        .task.red {
+            background-color: #d32f2f;
         }
         .task button {
             background-color: #b00020;
@@ -75,13 +83,13 @@
             display: flex;
             flex-direction: column;
         }
-        #addTaskView input, #addTaskView button {
+        #addTaskView input, #addTaskView select, #addTaskView button {
             margin: 10px 0;
             padding: 10px;
             border: none;
             border-radius: 5px;
         }
-        #addTaskView input {
+        #addTaskView input, #addTaskView select {
             background-color: #333;
             color: #e0e0e0;
         }
@@ -102,24 +110,24 @@
         <nav>
             <button id="viewTasksBtn">Tasks</button>
             <button id="addTasksBtn">Add Tasks</button>
+            <button id="syncTasksBtn">Sync Tasks</button>
         </nav>
         <div id="taskView" class="hidden">
             <h2>Tasks</h2>
-            <h3>Due Today</h3>
-            <ul id="dueToday" class="task-list"></ul>
-            <h3>Due Tomorrow</h3>
-            <ul id="dueTomorrow" class="task-list"></ul>
-            <h3>Due This Week</h3>
-            <ul id="dueThisWeek" class="task-list"></ul>
-            <h3>Other</h3>
-            <ul id="otherTasks" class="task-list"></ul>
+            <ul id="taskList" class="task-list"></ul>
         </div>
         <div id="addTaskView" class="hidden">
             <h2>Add Task</h2>
             <form id="taskForm">
                 <input type="text" id="taskName" placeholder="Task Name" required>
                 <input type="number" id="taskDuration" placeholder="Duration (hours)" required>
-                <input type="date" id="taskDeadline" required>
+                <input type="date" id="taskDeadlineDate" required>
+                <input type="time" id="taskDeadlineTime" required>
+                <select id="taskImportance" required>
+                    <option value="green">Not so important</option>
+                    <option value="yellow">Mid important</option>
+                    <option value="red">Very important</option>
+                </select>
                 <button type="submit">Add Task</button>
             </form>
         </div>
@@ -130,40 +138,49 @@
             const taskForm = document.getElementById('taskForm');
             const viewTasksBtn = document.getElementById('viewTasksBtn');
             const addTasksBtn = document.getElementById('addTasksBtn');
+            const syncTasksBtn = document.getElementById('syncTasksBtn');
             const taskView = document.getElementById('taskView');
             const addTaskView = document.getElementById('addTaskView');
             const taskName = document.getElementById('taskName');
             const taskDuration = document.getElementById('taskDuration');
-            const taskDeadline = document.getElementById('taskDeadline');
+            const taskDeadlineDate = document.getElementById('taskDeadlineDate');
+            const taskDeadlineTime = document.getElementById('taskDeadlineTime');
+            const taskImportance = document.getElementById('taskImportance');
+            const taskList = document.getElementById('taskList');
 
             function loadTasks() {
+                taskList.innerHTML = '';
                 const today = new Date().toISOString().split('T')[0];
                 const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
                 const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-                document.getElementById('dueToday').innerHTML = '';
-                document.getElementById('dueTomorrow').innerHTML = '';
-                document.getElementById('dueThisWeek').innerHTML = '';
-                document.getElementById('otherTasks').innerHTML = '';
-
                 const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                tasks.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+
                 tasks.forEach((task, index) => {
                     const li = document.createElement('li');
-                    li.className = 'task';
+                    li.className = `task ${task.importance}`;
+                    const dueDate = new Date(task.deadline);
+                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                    const formattedDate = dueDate.toLocaleDateString(undefined, options);
+                    const dueMessage = task.deadline.split('T')[0] === today ? 'Due Today' : task.deadline.split('T')[0] === tomorrow ? 'Due Tomorrow' : new Date(task.deadline) <= new Date(weekFromNow) ? `Due This Week on ${formattedDate}` : `Due on ${formattedDate}`;
                     li.innerHTML = `
-                        <span>${task.name} - ${task.duration} hrs - Due: ${task.deadline}</span>
+                        <span>${task.name} - ${task.duration} hrs - ${dueMessage} at ${task.deadline.split('T')[1]}</span>
                         <button onclick="removeTask(${index})">Remove</button>
                     `;
-                    if (task.deadline === today) {
-                        document.getElementById('dueToday').appendChild(li);
-                    } else if (task.deadline === tomorrow) {
-                        document.getElementById('dueTomorrow').appendChild(li);
-                    } else if (task.deadline <= weekFromNow) {
-                        document.getElementById('dueThisWeek').appendChild(li);
-                    } else {
-                        document.getElementById('otherTasks').appendChild(li);
-                    }
+                    taskList.appendChild(li);
                 });
+            }
+
+            function syncTasks() {
+                // Retrieve tasks from localStorage
+                const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+                // Sync tasks to localStorage of other device
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+
+                // Load tasks after synchronization
+                loadTasks();
             }
 
             taskForm.addEventListener('submit', (e) => {
@@ -172,7 +189,8 @@
                 const newTask = {
                     name: taskName.value,
                     duration: taskDuration.value,
-                    deadline: taskDeadline.value
+                    deadline: `${taskDeadlineDate.value}T${taskDeadlineTime.value}`,
+                    importance: taskImportance.value
                 };
                 tasks.push(newTask);
                 localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -200,6 +218,7 @@
 
             viewTasksBtn.addEventListener('click', showTasks);
             addTasksBtn.addEventListener('click', showAddTasks);
+            syncTasksBtn.addEventListener('click', syncTasks);
 
             loadTasks();
             showTasks();
